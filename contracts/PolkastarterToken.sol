@@ -6,19 +6,21 @@
 
 pragma solidity 0.8.2;
 
+https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol
+
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
 interface IERC20 {
-    function totalSupply() external view returns (uint256);
+    function totalSupply() external view returns (uint256);//mynotes openzeppelin
     function decimals() external view returns (uint8);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function permit(address target, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;
-    function transferWithPermit(address target, address to, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);//mynotes openzeppelin
+    function transfer(address recipient, uint256 amount) external returns (bool);//mynotes openzeppelin
+    function allowance(address owner, address spender) external view returns (uint256);// openzeppelin
+    function approve(address spender, uint256 amount) external returns (bool);// openzeppelin
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);// openzeppelin
+    function permit(address target, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;// 2612
+  ? function transferWithPermit(address target, address to, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external returns (bool);
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
@@ -32,6 +34,13 @@ interface IERC20 {
  *
  * See https://eips.ethereum.org/EIPS/eip-2612.
  */
+ 
+ 
+// https://github.com/Uniswap/v2-core/blob/4dd59067c76dea4a0e8e4bfdda41877a6b16dedc/contracts/UniswapV2ERC20.sol?_pjax=%23js-repo-pjax-container%2C%20div%5Bitemtype%3D%22http%3A%2F%2Fschema.org%2FSoftwareSourceCode%22%5D%20main%2C%20%5Bdata-pjax-container%5D#L81
+
+// nonces[owner]++ is being changed only here
+
+
 interface IERC2612 {
 
     /**
@@ -41,8 +50,12 @@ interface IERC2612 {
      * Every successful call to {permit} increases ``owner``'s nonce by one. This
      * prevents a signature from being used multiple times.
      */
-    function nonces(address owner) external view returns (uint256);
+    function nonces(address owner) external view returns (uint256); // not impl in unisvap
 }
+
+
+// THIS FILE IS COPY OF https://github.com/andrecronje/anyswap-v1-core/blob/master/contracts/AnyswapV4ERC20.sol
+
 
 /// @dev Wrapped ERC-20 v10 (AnyswapV3ERC20) is an ERC-20 ERC-20 wrapper. You can `deposit` ERC-20 and obtain an AnyswapV3ERC20 balance which can then be operated as an ERC-20 token. You can
 /// `withdraw` ERC-20 from AnyswapV3ERC20, which will then burn AnyswapV3ERC20 token in your wallet. The amount of AnyswapV3ERC20 token in any wallet is always identical to the
@@ -54,7 +67,7 @@ interface IAnyswapV3ERC20 is IERC20, IERC2612 {
     /// Emits {Approval} event.
     /// Returns boolean value indicating whether operation succeeded.
     /// For more information on approveAndCall format, see https://github.com/ethereum/EIPs/issues/677.
-    function approveAndCall(address spender, uint256 value, bytes calldata data) external returns (bool);
+    function approveAndCall(IApprovalReceiver spender, uint256 value, bytes calldata data) external returns (bool);
 
     /// @dev Moves `value` AnyswapV3ERC20 token from caller's account to account (`to`),
     /// after which a call is executed to an ERC677-compliant contract with the `data` parameter.
@@ -64,11 +77,14 @@ interface IAnyswapV3ERC20 is IERC20, IERC2612 {
     /// Requirements:
     ///   - caller account must have at least `value` AnyswapV3ERC20 token.
     /// For more information on transferAndCall format, see https://github.com/ethereum/EIPs/issues/677.
-    function transferAndCall(address to, uint value, bytes calldata data) external returns (bool);
+    function transferAndCall(ITransferReceiver to, uint value, bytes calldata data) external returns (bool);
+
+
+    // requires 223 - tokenReceived func of erc20 so it could reject transactions for other networks
 }
 
 interface ITransferReceiver {
-    function onTokenTransfer(address, uint, bytes calldata) external returns (bool);
+    function onTokenTransfer(address, uint, bytes calldata) external returns (bool);???
 }
 
 interface IApprovalReceiver {
@@ -78,7 +94,13 @@ interface IApprovalReceiver {
 library Address {
     function isContract(address account) internal view returns (bool) {
         bytes32 codehash;
-        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470; wtf, not like in openzeppelin????
+
+                // According to EIP-1052, 0x0 is the value returned for not-yet created accounts
+        // and 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 is returned
+        // for accounts without code, i.e. `keccak256('')`
+
+
         // solhint-disable-next-line no-inline-assembly
         assembly { codehash := extcodehash(account) }
         return (codehash != 0x0 && codehash != accountHash);
@@ -116,13 +138,14 @@ library SafeERC20 {
     }
 }
 
-contract AnyswapV4ERC20 is IAnyswapV3ERC20 {
+// so, the token on bnc is not actually plain erc20 token
+!!! contract AnyswapV4ERC20 is IAnyswapV3ERC20 {
     using SafeERC20 for IERC20;
     string public name;
     string public symbol;
     uint8  public immutable override decimals;
 
-    address public immutable underlying;
+    address public immutable underlying;!!!
 
     bytes32 public constant PERMIT_TYPEHASH = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     bytes32 public constant TRANSFER_TYPEHASH = keccak256("Transfer(address owner,address to,uint256 value,uint256 nonce,uint256 deadline)");
@@ -283,9 +306,9 @@ contract AnyswapV4ERC20 is IAnyswapV3ERC20 {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
-        underlying = _underlying;
+        underlying = _underlying;!!!
         if (_underlying != address(0x0)) {
-            require(_decimals == IERC20(_underlying).decimals());
+            require(_decimals == IERC20(_underlying).decimals());!!!
         }
 
         // Use init to allow for CREATE2 accross all chains
@@ -304,7 +327,7 @@ contract AnyswapV4ERC20 is IAnyswapV3ERC20 {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes(name)),
-                keccak256(bytes("1")),
+                keccak256(bytes("1")),//vers
                 chainId,
                 address(this)));
     }
@@ -577,6 +600,6 @@ contract AnyswapV4ERC20 is IAnyswapV3ERC20 {
         balanceOf[to] += value;
         emit Transfer(msg.sender, to, value);
 
-        return ITransferReceiver(to).onTokenTransfer(msg.sender, value, data);
+        return ITransferReceiver(to).onTokenTransfer(msg.sender, value, data); !!!!
     }
 }
